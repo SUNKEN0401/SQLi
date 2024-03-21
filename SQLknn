@@ -1,0 +1,107 @@
+# Import required libraries
+import nltk
+import pandas as pd
+from sklearn import tree
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer
+import matplotlib.pyplot as plt
+
+
+
+# Load in the data set as required
+df = pd.read_csv('E:/Files/sqli.csv', encoding = 'utf-16')
+print(df.head())
+
+# Vectorize the dataset
+vectorizer = CountVectorizer(min_df = 2, max_df = 0.7, max_features = 4096, stop_words = nltk.corpus.stopwords.words('english'))
+
+# initialize variables X and y
+y = df['Label']
+X = vectorizer.fit_transform(df['Sentence'].values.astype('U')).toarray()
+print(X.shape)
+
+# reshape the X variable into a matrix
+X.shape = (4200, 64, 64, 1)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3, random_state = 42)
+
+# reshape train and test data
+tested = X_test.copy()
+tested.shape = (tested.shape[0], tested.shape[1] * tested.shape[2])
+trained = X_train.copy()
+trained.shape = (X_train.shape[0], X_train.shape[1] * X_train.shape[2])
+
+# Decision Tree
+dt = tree.DecisionTreeClassifier()
+dt = dt.fit(trained, y_train)
+dt_prediction = dt.predict(tested)
+
+# K Nearest Neighbor
+knn = KNeighborsClassifier(n_neighbors = 4)
+knn = knn.fit(trained, y_train)
+knn_prediction = knn.predict(tested)
+
+# instantiate confusion matrix
+def confusion_matrix(true_value, predicted_value):
+    tp = 0
+    tn = 0
+    fp = 0
+    fn = 0
+
+    # loop over params
+    for i, j in zip(true_value, predicted_value):
+        if i == 1:
+            if i == j:
+                tp += 1
+            elif i != j:
+                fn += 1
+
+        elif i == 0:
+            if i == j:
+                tn += 1
+            elif i != j:
+                fp += 1
+
+    return (tp, tn, fp, fn)
+
+
+# set colors for bar chart
+colors = ['#0C2340', '#005A9C', '#BD3039', '#EB6E1F', '#C41E3A']
+
+# Decision Tree
+tp, tn, fp, fn = confusion_matrix(y_test, dt_prediction)
+accuracy = (tp + tn) / (tp + fp + fn + tn)
+false_alarm_ratio = fp / (fp + fn)
+recall = tp / (tp + fn)
+precision = tp / (tp + fp)
+f1_score = 2 * ((recall * precision) / (recall + precision))
+dt_dict = {'Accuracy': accuracy, 'FAR': false_alarm_ratio, 'Recall': recall, 'Precision': precision, 'F1_Score': f1_score}
+
+print(" For Decision Tree \n Accuracy : {0} \n False Alarm Ratio : {1} \n Recall : {2} \n Precision : {3} \n F1_Score : {4}".format(accuracy, false_alarm_ratio, recall, precision, f1_score))
+plt.bar(*zip(*dt_dict.items()), color = colors)
+plt.show()
+
+# K Nearest Neighbor
+tp, tn, fp, fn = confusion_matrix(y_test, knn_prediction)
+accuracy = (tp + tn) / (tp + fp + fn + tn)
+false_alarm_ratio = fp / (fp + fn)
+recall = tp / (tp + fn)
+precision = tp / (tp + fp)
+f1_score = 2 * ((recall * precision) / (recall + precision))
+knn_dict = {'Accuracy': accuracy, 'FAR': false_alarm_ratio, 'Recall': recall, 'Precision': precision, 'F1_Score': f1_score}
+
+print(" For K Nearest Neighbor \n Accuracy : {0} \n False Alarm Ratio : {1} \n Recall : {2} \n Precision : {3} \n F1_Score : {4}".format(accuracy, false_alarm_ratio, recall, precision, f1_score))
+plt.bar(*zip(*knn_dict.items()), color = colors)
+plt.show()
+# detect SQLI with KNN
+input_val = input("Nhập URL cần kiểm tra ") #Nhập vào giá trị cần kiểm tra.
+input_val = [input_val]
+input_val = vectorizer.transform(input_val).toarray()
+result = knn.predict(input_val)
+if result >= 1:
+    print("Dữ liệu có thể bị tấn công")
+else:
+    print("Dữ liệu an toàn")
+print("******************************************************************************************************")
+print("Phần demo của tụi em xin hết ạ!")
